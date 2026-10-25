@@ -126,6 +126,14 @@
       <pre id="evalOut"></pre>
     </section>
 
+    <section>
+      <h2>9. Connectors &amp; LLM</h2>
+      <p class="hint">Mock email inbox and sheet connector (real accounts are out of scope), plus the optional LLM status. The demo runs on template agents with no API key.</p>
+      <button onclick="loadConnectors()">View Mock Inbox</button>
+      <button class="secondary" onclick="loadLlm()">LLM Status</button>
+      <pre id="connOut"></pre>
+    </section>
+
     <section class="wide">
       <h2>8. Upload a New Document</h2>
       <p class="hint">Live RAG proof. Upload a document, then ask about it in section 1.</p>
@@ -234,6 +242,14 @@ async function editDraft(id, current) {
   if (next === null) return;
   const r = await fetch(api('/api/approvals/' + id), { method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ draft: next }) });
   await r.json(); loadApprovals();
+}
+async function loadConnectors() {
+  const d = await fetch(api('/api/connectors/mock-inbox')).then(r => r.json());
+  document.getElementById('connOut').textContent = JSON.stringify(d, null, 2);
+}
+async function loadLlm() {
+  const d = await fetch(api('/api/llm-status')).then(r => r.json());
+  document.getElementById('connOut').textContent = JSON.stringify(d, null, 2);
 }
 async function report() {
   const d = await fetch(api('/api/report')).then(r => r.json());
