@@ -128,9 +128,10 @@
 
     <section>
       <h2>9. Connectors &amp; LLM</h2>
-      <p class="hint">Mock email inbox and sheet connector (real accounts are out of scope), plus the optional LLM status. The demo runs on template agents with no API key.</p>
+      <p class="hint">Mock email inbox and sheet connector (real accounts are out of scope), plus the optional LLM status. The demo runs on template agents with no API key; with AUTOFLOW_LLM_PROVIDER=gemini and a key set in the deployment env vars, Test Gemini calls the real model.</p>
       <button onclick="loadConnectors()">View Mock Inbox</button>
       <button class="secondary" onclick="loadLlm()">LLM Status</button>
+      <button class="secondary" onclick="testLlm()">Test Gemini</button>
       <pre id="connOut"></pre>
     </section>
 
@@ -249,6 +250,10 @@ async function loadConnectors() {
 }
 async function loadLlm() {
   const d = await fetch(api('/api/llm-status')).then(r => r.json());
+  document.getElementById('connOut').textContent = JSON.stringify(d, null, 2);
+}
+async function testLlm() {
+  const d = await fetch(api('/api/llm/generate'), { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ prompt: 'Reply in one short sentence: what does a support agent do in a small business?' }) }).then(r => r.json());
   document.getElementById('connOut').textContent = JSON.stringify(d, null, 2);
 }
 async function report() {
