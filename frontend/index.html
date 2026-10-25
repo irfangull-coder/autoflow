@@ -3,70 +3,118 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AutoFlow — Dashboard (Starter)</title>
+<title>AutoFlow — Dashboard</title>
 <style>
-  body { font-family: system-ui, sans-serif; max-width: 900px; margin: 30px auto; padding: 0 16px; color: #1a1a1a; }
-  h1 { margin-bottom: 4px; } p.sub { color: #555; margin-top: 0; }
-  section { border: 1px solid #ddd; border-radius: 10px; padding: 16px; margin: 16px 0; }
-  input, textarea { width: 100%; padding: 10px; margin: 6px 0; box-sizing: border-box; }
-  button { padding: 9px 16px; margin-right: 8px; cursor: pointer; }
-  pre { background: #f4f4f4; padding: 12px; white-space: pre-wrap; border-radius: 6px; }
-  .row { display: flex; gap: 12px; flex-wrap: wrap; }
-  .card { border: 1px solid #ddd; border-radius: 8px; padding: 10px 14px; }
+  :root {
+    --bg: #eef2f7; --card: #ffffff; --ink: #101828; --muted: #667085;
+    --line: #d0d5dd; --primary: #4f46e5; --primary-dark: #4338ca;
+    --green: #067647; --green-bg: #ecfdf3; --red: #b42318; --red-bg: #fef3f2;
+    --amber-bg: #fffaeb; --amber: #b54708;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; margin: 0; color: var(--ink); background: var(--bg); }
+  header { background: linear-gradient(135deg, #312e81, #4f46e5 60%, #06b6d4); color: #fff; padding: 36px 20px 28px; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+  header h1 { margin: 0 0 6px; font-size: 34px; letter-spacing: -0.5px; }
+  header p { margin: 0; opacity: 0.9; max-width: 720px; line-height: 1.5; }
+  .badge { display: inline-block; background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.35); border-radius: 999px; padding: 4px 12px; font-size: 13px; margin-bottom: 12px; }
+  main { padding: 24px 0 40px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } header h1 { font-size: 28px; } }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 20px; box-shadow: 0 2px 10px rgba(16,24,40,0.05); }
+  section.wide { grid-column: 1 / -1; }
+  section h2 { margin: 0 0 4px; font-size: 19px; }
+  section p.hint { color: var(--muted); margin: 0 0 14px; font-size: 14px; line-height: 1.5; }
+  input, textarea { width: 100%; padding: 11px 12px; margin: 6px 0 10px; border: 1px solid var(--line); border-radius: 10px; font: inherit; }
+  input:focus, textarea:focus { outline: 2px solid #c7d2fe; border-color: var(--primary); }
+  button { padding: 10px 18px; margin: 0 8px 8px 0; cursor: pointer; border: 0; border-radius: 10px; background: var(--primary); color: #fff; font-weight: 600; }
+  button:hover { background: var(--primary-dark); }
+  button.secondary { background: #f2f4f7; color: var(--ink); border: 1px solid var(--line); }
+  button.approve { background: var(--green); }
+  button.reject { background: var(--red-bg); color: var(--red); border: 1px solid #fecdca; }
+  pre { background: #f9fafb; border: 1px solid var(--line); padding: 14px; white-space: pre-wrap; border-radius: 10px; font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }
+  .draft-box { background: #eef4ff; border: 1px solid #b2ccff; border-radius: 10px; padding: 14px; margin: 10px 0; line-height: 1.55; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .tag { display: inline-block; border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 600; background: var(--amber-bg); color: var(--amber); }
+  .tag.ok { background: var(--green-bg); color: var(--green); }
+  .card { border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin: 10px 0; }
+  .card b { font-size: 15px; }
+  footer { color: var(--muted); font-size: 13px; text-align: center; padding-bottom: 28px; }
 </style>
 </head>
 <body>
-<h1>AutoFlow</h1>
-<p class="sub">Multi-Agent Business Automation — Starter Dashboard (FYP Week 1–3)</p>
+<header>
+  <div class="wrap">
+    <span class="badge">Final Year Project &middot; Multi-Agent AI Platform</span>
+    <h1>AutoFlow</h1>
+    <p>Multi-agent business automation for SMEs. Agents prepare drafts, a human approves them, and every step is logged with its source.</p>
+  </div>
+</header>
 
-<section>
-  <h2>1. Customer sawal poocho (Support Agent + RAG)</h2>
-  <input id="q" placeholder="Masalan: mera order 1023 kahan hai? ya return policy kya hai?">
-  <button onclick="ask()">Agent se poocho</button>
-  <pre id="askOut">Yahan agent ke steps, draft aur source nazar aayen ge.</pre>
-</section>
+<main class="wrap">
+  <div class="grid">
+    <section>
+      <h2>1. Ask a Customer Question</h2>
+      <p class="hint">Support Agent + RAG. Try an order status or a policy question.</p>
+      <input id="q" placeholder="e.g. Where is my order 1023? Or: What is the return policy?">
+      <button onclick="ask()">Ask Agent</button>
+      <div id="askDraft"></div>
+      <pre id="askOut">The agent's steps, draft, and source will appear here.</pre>
+    </section>
 
-<section>
-  <h2>2. Approval Queue (Human-in-the-loop)</h2>
-  <button onclick="loadApprovals()">Approvals refresh karo</button>
-  <div id="approvals"></div>
-</section>
+    <section>
+      <h2>2. Approval Queue</h2>
+      <p class="hint">Human-in-the-loop. Nothing is sent until you approve it.</p>
+      <button onclick="loadApprovals()">Refresh Approvals</button>
+      <div id="approvals"></div>
+    </section>
 
-<section>
-  <h2>3. Invoice se data nikaalo (Data Agent)</h2>
-  <textarea id="inv" rows="3" placeholder="Masalan: Order 1023, Ali ne 2 shoes order kiye, Rs 4500"></textarea>
-  <button onclick="invoice()">Data nikaalo</button>
-  <pre id="invOut"></pre>
-</section>
+    <section>
+      <h2>3. Extract Data from an Invoice</h2>
+      <p class="hint">Data Agent. Paste invoice or email text and extract the structured fields.</p>
+      <textarea id="inv" rows="3" placeholder="e.g. Order 1023, Ali ordered 2 shoes, Rs 4500"></textarea>
+      <button onclick="invoice()">Extract Data</button>
+      <pre id="invOut"></pre>
+    </section>
 
-<section>
-  <h2>4. Report + Logs</h2>
-  <button onclick="report()">Report dekho</button>
-  <button onclick="logs()">Logs dekho</button>
-  <pre id="repOut"></pre>
-</section>
+    <section>
+      <h2>4. Report &amp; Logs</h2>
+      <p class="hint">Reporting Agent + audit trail for every agent action.</p>
+      <button onclick="report()">View Report</button>
+      <button class="secondary" onclick="logs()">View Logs</button>
+      <pre id="repOut"></pre>
+    </section>
 
-<section>
-  <h2>5. Naya document upload karo (Live RAG proof)</h2>
-  <input id="docTitle" placeholder="Document ka naam, masalan: New Price List">
-  <textarea id="docText" rows="3" placeholder="Document ka text likho, phir usi bare me sawal poocho."></textarea>
-  <button onclick="uploadDoc()">Upload karo</button>
-  <pre id="docOut"></pre>
-</section>
+    <section class="wide">
+      <h2>5. Upload a New Document</h2>
+      <p class="hint">Live RAG proof. Upload a document, then ask about it in section 1.</p>
+      <input id="docTitle" placeholder="Document title, e.g. New Price List">
+      <textarea id="docText" rows="3" placeholder="Paste the document text here, then ask a question about it."></textarea>
+      <button onclick="uploadDoc()">Upload Document</button>
+      <pre id="docOut"></pre>
+    </section>
+  </div>
+</main>
+
+<footer>Demo data only &middot; All agent drafts require human approval before sending.</footer>
 
 <script src="config.js"></script>
 <script>
-// API base: local par khaali (relative /api/...), live par Render URL.
-// Ye value frontend/config.js me set hoti hai.
+// API base: empty locally (relative /api/...), Render URL on the live site.
+// This value is set in frontend/config.js.
 const API_BASE = (window.AUTOFLOW_API_URL || "").replace(/\/$/, "");
 function api(path) { return API_BASE + path; }
 async function post(url, body) {
   const r = await fetch(api(url), { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
   return r.json();
 }
+function esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 async function ask() {
   const q = document.getElementById('q').value;
   const d = await post('/api/ask', { question: q });
+  document.getElementById('askDraft').innerHTML = d.draft
+    ? `<div class="draft-box"><b>Draft reply</b> <span class="tag">${esc(d.status || '')}</span><br>${esc(d.draft)}<br><span class="meta">Agent: ${esc(d.agent)} &middot; Source: ${esc(d.source)} &middot; Approval #${esc(d.approval_id)}</span></div>`
+    : '';
   document.getElementById('askOut').textContent = JSON.stringify(d, null, 2);
   loadApprovals();
 }
@@ -79,10 +127,10 @@ async function invoice() {
 async function loadApprovals() {
   const d = await fetch(api('/api/approvals')).then(r => r.json());
   document.getElementById('approvals').innerHTML = d.map(a =>
-    `<div class="card"><b>#${a.id}</b> [${a.status}] — ${a.task}<br>${a.draft}<br><i>Source: ${a.source}</i><br>
-     <button onclick="act(${a.id},'approve')">Approve</button>
-     <button onclick="act(${a.id},'reject')">Reject</button></div>`
-  ).join('') || 'Koi approval pending nahi hai.';
+    `<div class="card"><b>#${a.id}</b> <span class="tag">${esc(a.status)}</span> &mdash; ${esc(a.task)}<br>${esc(a.draft)}<br><span class="meta">Source: ${esc(a.source)}</span><br><br>
+     <button class="approve" onclick="act(${a.id},'approve')">Approve</button>
+     <button class="reject" onclick="act(${a.id},'reject')">Reject</button></div>`
+  ).join('') || 'No pending approvals.';
 }
 async function act(id, action) {
   await post(`/api/approvals/${id}/${action}`, {});
