@@ -11,4 +11,4 @@
 //   Phir Vercel par dobara deploy karo (ya GitHub push karo, auto-deploy
 //   ho jayega). Backend par ALLOWED_ORIGINS me apni Vercel URL bhi
 //   add karna mat bhoolna, warna browser CORS error de ga.
-window.AUTOFLOW_API_URL = "";
+window.AUTOFLOW_API_URL = "https://autoflow-api-fqns.onrender.com";
