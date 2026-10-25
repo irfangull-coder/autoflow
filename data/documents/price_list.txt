@@ -1,0 +1,1 @@
+Price List - AutoFlow Demo Store. Running Shoes Rs 2300 per pair. Cotton Shirt Rs 1800 per piece. School Bag Rs 3200 per piece. Delivery charges Rs 200 for orders below Rs 3000, free delivery for orders Rs 3000 and above. Prices include tax. Discount: 10 percent off on orders above Rs 10000.
