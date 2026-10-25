@@ -30,7 +30,7 @@ def tokenize(text: str) -> list[str]:
     return [w for w in words if w not in STOPWORDS]
 
 
-def chunk_text(text: str, max_words: int = 60) -> list[str]:
+def chunk_text(text: str, max_words: int = 100) -> list[str]:
     """Split a document into overlapping-ish word chunks."""
     words = text.split()
     chunks = []
