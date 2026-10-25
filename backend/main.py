@@ -20,12 +20,14 @@ from pydantic import BaseModel
 
 from . import store
 from .agents import Orchestrator, ReportingAgent
+from .connectors import mock_inbox, mock_sheet_row
 from .evaluation import run_evaluation
+from .llm import status as llm_status
 from .rag import DocumentIndex
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-app = FastAPI(title="AutoFlow", version="0.3.0")
+app = FastAPI(title="AutoFlow", version="1.0.0")
 
 # --- CORS: Vercel frontend ko Render backend se baat karne dena -------
 # Set the env var on Render, for example:
@@ -94,7 +96,7 @@ class DraftEdit(BaseModel):
 @app.get("/api/health")
 def health():
     """Render health check + Vercel frontend connection test."""
-    return {"ok": True, "service": "autoflow", "version": "0.3.0"}
+    return {"ok": True, "service": "autoflow", "version": "1.0.0"}
 
 
 @app.get("/api/overview")
@@ -132,9 +134,37 @@ def tasks():
     return store.list_tasks()
 
 
+@app.get("/api/jobs")
+def jobs():
+    return [
+        {"kind": "daily_report",
+         "description": "Daily report summary, queued for approval",
+         "trigger": "Manual run from dashboard (scheduled runs need a "
+         "persistent worker; Render free tier sleeps)"},
+        {"kind": "payment_reminder",
+         "description": "Reminders for pending orders, queued for approval",
+         "trigger": "Manual run from dashboard"},
+    ]
+
+
 @app.post("/api/jobs/run")
 def run_job(body: JobIn):
     return orchestrator.handle_scheduled(body.kind, min_days=body.min_days)
+
+
+@app.get("/api/connectors/mock-inbox")
+def connectors_inbox():
+    return {"connector": "mock_email", "emails": mock_inbox()}
+
+
+@app.post("/api/connectors/mock-sheet")
+def connectors_sheet(body: dict):
+    return mock_sheet_row(body.get("fields", body))
+
+
+@app.get("/api/llm-status")
+def llm():
+    return llm_status()
 
 
 @app.get("/api/evaluation")
