@@ -19,7 +19,7 @@
 9. **Logs** — audit trail for every agent action
 10. **Evaluation** — fixed 18-case test set with measured results (see below)
 11. **Mock connectors** — mock email inbox and mock sheet row (real accounts are out of scope)
-12. **LLM hook** — `backend/llm.py` reports whether a real LLM provider is configured; the demo runs on template agents with no API key
+12. **LLM hook (Gemini, real)** — `backend/llm.py` calls Google Gemini (`gemini-3-flash-preview`, stdlib only, no SDK) when `AUTOFLOW_LLM_PROVIDER=gemini` and `AUTOFLOW_LLM_API_KEY` are set in the deployment env vars; `GET /api/llm-status` reports the status and `POST /api/llm/generate` tests it. Without a key it honestly reports disabled and the template agents answer. The key must never be committed to the repo — on Render set it in the dashboard Environment tab and redeploy. (Verified 2026-10-25: Gemini generation works via the stored credential; note gemini-2.5-flash was retired for new accounts that day, so the code uses gemini-3-flash-preview.)
 
 RAG currently uses token-overlap retrieval so it runs with no API key. The interface (`DocumentIndex.search()`) is deliberately the same as a vector-DB version, so embeddings + ChromaDB/pgvector can replace the scoring later without changing the agents.
 
