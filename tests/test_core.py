@@ -48,7 +48,7 @@ def test_scheduler_payment_reminders_use_pending_orders():
 
 def test_evaluation_runs_and_reports_metrics():
     result = run_evaluation()
-    assert result["cases_total"] == 10
+    assert result["cases_total"] == 18
     assert 0 <= result["task_success_rate"] <= 1
     assert 0 <= result["baseline_success_rate"] <= 1
     assert result["avg_latency_ms"] >= 0
