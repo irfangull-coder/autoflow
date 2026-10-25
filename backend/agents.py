@@ -27,17 +27,17 @@ class SupportAgent:
         self.index = index
 
     def answer(self, question: str) -> dict:
-        steps = ["SupportAgent: sawal samjha", "Order number check kiya"]
+        steps = ["SupportAgent: understood the question", "Checked for an order number"]
         # 1) Order-status path: e.g. "mera order 1023 kahan hai?"
         match = re.search(r"\b(\d{3,})\b", question)
         if match and ("order" in question.lower() or "parcel" in question.lower()):
             order = store.get_order(match.group(1))
-            steps.append(f"Order record dhoondha: {match.group(1)}")
+            steps.append(f"Found order record: {match.group(1)}")
             if order:
                 draft = (
-                    f"Assalam-o-Alaikum {order['customer']}, aapka order "
-                    f"{order['id']} ({order['product']}) is waqt "
-                    f"'{order['status']}' hai. Amount Rs {order['amount']} hai."
+                    f"Hello {order['customer']}, your order "
+                    f"{order['id']} ({order['product']}) is currently "
+                    f"'{order['status']}'. Amount: Rs {order['amount']}."
                 )
                 return {
                     "agent": "SupportAgent",
@@ -47,24 +47,24 @@ class SupportAgent:
                 }
             return {
                 "agent": "SupportAgent",
-                "draft": "Maaf kijiye, is order number ka koi record nahi mila. "
-                "Barah-e-karam order number dobara check karke bhejen.",
+                "draft": "Sorry, no record was found for this order number. "
+                "Please check the order number and try again.",
                 "source": "Orders table (no match)",
                 "steps": steps,
             }
         # 2) RAG path: answer from business documents, with citation.
-        steps.append("RAG: business documents me search kiya")
+        steps.append("RAG: searched business documents")
         results = self.index.search(question, top_k=1)
         if not results:
             return {
                 "agent": "SupportAgent",
-                "draft": "Maaf kijiye, is sawal ka jawab hamari documents me nahi mila. "
-                "Aap apna sawal tafseel se likhen, hum insan se jawab dilwa den ge.",
+                "draft": "Sorry, I could not find an answer to this question in our documents. "
+                "Please write your question in more detail and we will arrange a human reply.",
                 "source": "No matching document",
                 "steps": steps,
             }
         best = results[0]
-        draft = f"Hamari maloomat ke mutabiq: {best['text']}"
+        draft = f"According to our records: {best['text']}"
         return {
             "agent": "SupportAgent",
             "draft": draft,
@@ -143,9 +143,9 @@ class Orchestrator:
         result = self.data.extract(text)
         if not result["valid"]:
             draft = (
-                "Invoice se kuch fields nahi mili: "
+                "Some fields could not be extracted from the invoice: "
                 + ", ".join(result["missing"])
-                + ". Barah-e-karam poori tafseel bhejen."
+                + ". Please send the complete details."
             )
             approval_id = store.create_approval(
                 task="Invoice data entry", draft=draft, source="Invoice text"
@@ -160,9 +160,9 @@ class Orchestrator:
             }
         f = result["fields"]
         draft = (
-            f"Invoice data tayyar hai: order {f['order_id']}, "
+            f"Invoice data is ready: order {f['order_id']}, "
             f"quantity {f['quantity']}, amount Rs {f['amount']}. "
-            "Approve karne par ye record update hoga."
+            "It will be updated once approved."
         )
         approval_id = store.create_approval(
             task="Invoice data entry", draft=draft, source="Invoice text"
