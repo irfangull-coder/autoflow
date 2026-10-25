@@ -55,6 +55,14 @@ class DocumentIndex:
             added += 1
         return added
 
+    def list_sources(self) -> list[str]:
+        return sorted({c["source"] for c in self.chunks})
+
+    def remove_source(self, source: str) -> int:
+        before = len(self.chunks)
+        self.chunks = [c for c in self.chunks if c["source"] != source]
+        return before - len(self.chunks)
+
     def search(self, query: str, top_k: int = 3) -> list[dict]:
         """Score chunks by token overlap with the query."""
         query_tokens = Counter(tokenize(query))
