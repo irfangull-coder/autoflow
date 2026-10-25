@@ -112,6 +112,66 @@ class ReportingAgent:
         }
 
 
+class SchedulerAgent:
+    """Runs time-based work: daily reports and payment reminders.
+
+    Nothing is ever sent directly. Every reminder and report summary
+    is queued as a draft for human approval, exactly like the other
+    agents. In the demo, "sending" means the approved draft is shown
+    on the dashboard; real email/WhatsApp delivery is out of scope
+    and is behind a mock connector in the full proposal.
+    """
+
+    @staticmethod
+    def payment_reminders(min_days: int = 2, today: str | None = None) -> list[dict]:
+        from datetime import date
+
+        ref = date.fromisoformat(today) if today else date.today()
+        reminders = []
+        for order in store.list_orders():
+            if order["status"] != "pending":
+                continue
+            try:
+                order_date = date.fromisoformat(order["date"])
+            except ValueError:
+                continue
+            days_pending = (ref - order_date).days
+            if days_pending < min_days:
+                continue
+            reminders.append(
+                {
+                    "order_id": order["id"],
+                    "customer": order["customer"],
+                    "product": order["product"],
+                    "amount": order["amount"],
+                    "date": order["date"],
+                    "days_pending": days_pending,
+                    "draft": (
+                        f"Hello {order['customer']}, a friendly reminder: "
+                        f"your order {order['id']} ({order['product']}) "
+                        f"amount Rs {order['amount']} has been pending "
+                        f"since {order['date']} ({days_pending} days). "
+                        "Please confirm payment at your convenience."
+                    ),
+                    "source": f"Orders table, order {order['id']}",
+                }
+            )
+        return reminders
+
+    @staticmethod
+    def daily_report_draft() -> dict:
+        report = ReportingAgent.daily_report()
+        draft = (
+            f"Daily report: {report['total_orders']} orders, "
+            f"total Rs {report['total_amount']}. "
+            f"Pending: {report['by_status'].get('pending', 0)}, "
+            f"dispatched: {report['by_status'].get('dispatched', 0)}, "
+            f"delivered: {report['by_status'].get('delivered', 0)}."
+        )
+        return {"agent": "SchedulerAgent", "draft": draft, "report": report,
+                "source": "Orders table"}
+
+
 class Orchestrator:
     """Routes a task, runs the right agent, and queues the draft.
 
@@ -137,6 +197,57 @@ class Orchestrator:
             f"approval_id={approval_id}, agent={result['agent']}",
         )
         return {**result, "approval_id": approval_id, "status": "pending_approval"}
+
+    def handle_scheduled(self, kind: str, min_days: int = 2) -> dict:
+        """Run a scheduled job and queue every output for approval."""
+        store.log("SchedulerAgent", "job_started", kind)
+        if kind == "payment_reminder":
+            reminders = SchedulerAgent.payment_reminders(min_days=min_days)
+            approval_ids = []
+            for r in reminders:
+                approval_ids.append(
+                    store.create_approval(
+                        task=f"Payment reminder: order {r['order_id']}",
+                        draft=r["draft"],
+                        source=r["source"],
+                    )
+                )
+            store.log(
+                "SchedulerAgent", "job_completed",
+                f"payment_reminder: {len(reminders)} reminders queued",
+            )
+            return {"agent": "SchedulerAgent", "kind": kind,
+                    "reminders": reminders, "approval_ids": approval_ids,
+                    "status": "pending_approval" if reminders else "no_action"}
+        if kind == "daily_report":
+            result = SchedulerAgent.daily_report_draft()
+            approval_id = store.create_approval(
+                task="Daily report", draft=result["draft"],
+                source=result["source"],
+            )
+            store.log(
+                "SchedulerAgent", "job_completed",
+                f"daily_report: approval_id={approval_id}",
+            )
+            return {**result, "kind": kind, "approval_id": approval_id,
+                    "status": "pending_approval"}
+        return {"agent": "SchedulerAgent", "kind": kind,
+                "status": "unknown_job",
+                "error": "Unknown scheduled job kind. Use daily_report or payment_reminder."}
+
+    def handle_task(self, title: str, kind: str, payload: str = "") -> dict:
+        """Multi-step task routing: the orchestrator plans, then
+        assigns the right agent and verifies the result shape."""
+        if kind == "question":
+            return self.handle_question(payload or title)
+        if kind == "invoice":
+            return self.handle_invoice(payload or title)
+        if kind == "daily_report":
+            return self.handle_scheduled("daily_report")
+        if kind == "payment_reminder":
+            return self.handle_scheduled("payment_reminder")
+        return {"agent": "Orchestrator", "status": "failed",
+                "error": f"Unknown task kind: {kind}"}
 
     def handle_invoice(self, text: str) -> dict:
         store.log("Orchestrator", "invoice_received", text[:120])
