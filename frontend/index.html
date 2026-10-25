@@ -53,6 +53,12 @@
 
 <main class="wrap">
   <div class="grid">
+    <section class="wide">
+      <h2>Overview</h2>
+      <p class="hint">Live totals, pending orders, and pending approvals at a glance.</p>
+      <button onclick="overview()">Refresh Overview</button>
+      <div id="overview" class="meta" style="margin-top:10px;"></div>
+    </section>
     <section>
       <h2>1. Ask a Customer Question</h2>
       <p class="hint">Support Agent + RAG. Try an order status or a policy question.</p>
@@ -82,15 +88,52 @@
       <p class="hint">Reporting Agent + audit trail for every agent action.</p>
       <button onclick="report()">View Report</button>
       <button class="secondary" onclick="logs()">View Logs</button>
+      <button class="secondary" onclick="window.open(api('/api/report.csv'), '_blank')">Download Report (CSV)</button>
+      <div id="repChart"></div>
       <pre id="repOut"></pre>
     </section>
 
+    <section>
+      <h2>5. Tasks</h2>
+      <p class="hint">Multi-step tasks routed by the Orchestrator to the right agent, with status tracking.</p>
+      <input id="taskTitle" placeholder="Task title, e.g. Where is my order 1023?">
+      <select id="taskKind" style="width:100%;padding:11px 12px;margin:6px 0 10px;border:1px solid var(--line);border-radius:10px;font:inherit;">
+        <option value="question">Customer question</option>
+        <option value="invoice">Invoice extraction</option>
+        <option value="daily_report">Daily report (Scheduler)</option>
+        <option value="payment_reminder">Payment reminders (Scheduler)</option>
+      </select>
+      <input id="taskPayload" placeholder="Details (for question/invoice tasks, same as title if left blank)">
+      <button onclick="runTask()">Run Task</button>
+      <button class="secondary" onclick="loadTasks()">Refresh Tasks</button>
+      <pre id="taskOut"></pre>
+      <div id="tasks"></div>
+    </section>
+
+    <section>
+      <h2>6. Scheduler</h2>
+      <p class="hint">Workflow / Scheduler Agent. Runs daily reports and payment reminders. Every output is queued for approval — nothing is sent directly.</p>
+      <button onclick="runJob('daily_report')">Run Daily Report</button>
+      <button onclick="runJob('payment_reminder')">Run Payment Reminders</button>
+      <pre id="jobOut"></pre>
+    </section>
+
+    <section>
+      <h2>7. Evaluation</h2>
+      <p class="hint">Measured results on a fixed test set: multi-agent system vs a RAG-only baseline. Creates no approvals and sends nothing.</p>
+      <button onclick="runEvaluation()">Run Evaluation</button>
+      <div id="evalSummary"></div>
+      <pre id="evalOut"></pre>
+    </section>
+
     <section class="wide">
-      <h2>5. Upload a New Document</h2>
+      <h2>8. Upload a New Document</h2>
       <p class="hint">Live RAG proof. Upload a document, then ask about it in section 1.</p>
       <input id="docTitle" placeholder="Document title, e.g. New Price List">
       <textarea id="docText" rows="3" placeholder="Paste the document text here, then ask a question about it."></textarea>
       <button onclick="uploadDoc()">Upload Document</button>
+      <button class="secondary" onclick="loadDocuments()">Refresh Documents</button>
+      <div id="docList"></div>
       <pre id="docOut"></pre>
     </section>
   </div>
@@ -129,15 +172,74 @@ async function loadApprovals() {
   document.getElementById('approvals').innerHTML = d.map(a =>
     `<div class="card"><b>#${a.id}</b> <span class="tag">${esc(a.status)}</span> &mdash; ${esc(a.task)}<br>${esc(a.draft)}<br><span class="meta">Source: ${esc(a.source)}</span><br><br>
      <button class="approve" onclick="act(${a.id},'approve')">Approve</button>
-     <button class="reject" onclick="act(${a.id},'reject')">Reject</button></div>`
+     <button class="reject" onclick="act(${a.id},'reject')">Reject</button>
+     <button class="secondary" onclick="editDraft(${a.id}, ${JSON.stringify(a.draft)})">Edit Draft</button></div>`
   ).join('') || 'No pending approvals.';
 }
 async function act(id, action) {
   await post(`/api/approvals/${id}/${action}`, {});
   loadApprovals();
 }
+async function overview() {
+  const d = await fetch(api('/api/overview')).then(r => r.json());
+  document.getElementById('overview').innerHTML =
+    `<b>${d.total_orders}</b> orders &middot; <b>Rs ${d.total_amount}</b> total &middot; ` +
+    `<b>${d.pending_orders}</b> pending orders &middot; <b>${d.pending_approvals}</b> pending approvals &middot; ` +
+    `<b>${d.tasks}</b> tasks &middot; By status: ${Object.entries(d.by_status).map(([k, v]) => `${k} ${v}`).join(', ')}`;
+}
+async function runTask() {
+  const title = document.getElementById('taskTitle').value;
+  const kind = document.getElementById('taskKind').value;
+  const payload = document.getElementById('taskPayload').value;
+  const d = await post('/api/tasks', { title, kind, payload });
+  document.getElementById('taskOut').textContent = JSON.stringify(d, null, 2);
+  loadTasks(); loadApprovals();
+}
+async function loadTasks() {
+  const d = await fetch(api('/api/tasks')).then(r => r.json());
+  document.getElementById('tasks').innerHTML = d.map(t =>
+    `<div class="card"><b>#${t.id}</b> <span class="tag">${esc(t.status)}</span> &mdash; ${esc(t.title)} <span class="meta">(${esc(t.kind)})</span></div>`
+  ).join('') || 'No tasks yet.';
+}
+async function runJob(kind) {
+  const d = await post('/api/jobs/run', { kind });
+  document.getElementById('jobOut').textContent = JSON.stringify(d, null, 2);
+  loadApprovals();
+}
+async function runEvaluation() {
+  const d = await fetch(api('/api/evaluation')).then(r => r.json());
+  document.getElementById('evalSummary').innerHTML =
+    `<div class="draft-box"><b>Task success:</b> ${(d.task_success_rate * 100).toFixed(0)}% &middot; ` +
+    `<b>Answer accuracy:</b> ${(d.answer_accuracy * 100).toFixed(0)}% &middot; ` +
+    `<b>Data-entry accuracy:</b> ${(d.data_entry_accuracy * 100).toFixed(0)}% &middot; ` +
+    `<b>RAG-only baseline:</b> ${(d.baseline_success_rate * 100).toFixed(0)}% &middot; ` +
+    `<b>Avg latency:</b> ${d.avg_latency_ms} ms &middot; ${d.cases_total} cases</div>`;
+  document.getElementById('evalOut').textContent = JSON.stringify(d, null, 2);
+}
+async function loadDocuments() {
+  const d = await fetch(api('/api/documents')).then(r => r.json());
+  const builtIn = d.built_in.map(s => `<div class="card">${esc(s)} <span class="meta">(built-in)</span></div>`).join('');
+  const uploaded = d.uploaded.map(doc =>
+    `<div class="card"><b>${esc(doc.title)}</b> <span class="meta">${doc.chars} chars</span> ` +
+    `<button class="reject" onclick="deleteDoc(${JSON.stringify(doc.title)})">Delete</button></div>`).join('');
+  document.getElementById('docList').innerHTML = builtIn + uploaded;
+}
+async function deleteDoc(title) {
+  const d = await fetch(api('/api/documents/' + encodeURIComponent(title)), { method: 'DELETE' }).then(r => r.json());
+  document.getElementById('docOut').textContent = JSON.stringify(d, null, 2);
+  loadDocuments();
+}
+async function editDraft(id, current) {
+  const next = prompt('Edit draft:', current);
+  if (next === null) return;
+  const r = await fetch(api('/api/approvals/' + id), { method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ draft: next }) });
+  await r.json(); loadApprovals();
+}
 async function report() {
   const d = await fetch(api('/api/report')).then(r => r.json());
+  const max = Math.max(1, ...Object.values(d.by_status));
+  document.getElementById('repChart').innerHTML = Object.entries(d.by_status).map(([k, v]) =>
+    `<div style="margin:6px 0;">${esc(k)} (${v})<div style="background:#4f46e5;height:14px;border-radius:7px;width:${Math.round(v / max * 100)}%;"></div></div>`).join('');
   document.getElementById('repOut').textContent = JSON.stringify(d, null, 2);
 }
 async function logs() {
@@ -148,7 +250,7 @@ async function uploadDoc() {
   const d = await post('/api/documents', { title: document.getElementById('docTitle').value, text: document.getElementById('docText').value });
   document.getElementById('docOut').textContent = JSON.stringify(d, null, 2);
 }
-loadApprovals();
+loadApprovals(); overview(); loadTasks(); loadDocuments();
 </script>
 </body>
 </html>
