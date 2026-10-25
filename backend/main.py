@@ -22,6 +22,7 @@ from . import store
 from .agents import Orchestrator, ReportingAgent
 from .connectors import mock_inbox, mock_sheet_row
 from .evaluation import run_evaluation
+from .llm import generate as llm_generate
 from .llm import status as llm_status
 from .rag import DocumentIndex
 
@@ -91,6 +92,10 @@ class JobIn(BaseModel):
 
 class DraftEdit(BaseModel):
     draft: str
+
+
+class LlmPrompt(BaseModel):
+    prompt: str
 
 
 @app.get("/api/health")
@@ -165,6 +170,13 @@ def connectors_sheet(body: dict):
 @app.get("/api/llm-status")
 def llm():
     return llm_status()
+
+
+@app.post("/api/llm/generate")
+def llm_test(body: LlmPrompt):
+    """Optional real-LLM test. Without a configured key this honestly
+    returns llm_disabled; it never leaks or logs any key."""
+    return llm_generate(body.prompt)
 
 
 @app.get("/api/evaluation")
