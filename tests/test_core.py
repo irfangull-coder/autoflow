@@ -7,7 +7,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from backend.agents import DataAgent, ReportingAgent
+from backend.agents import DataAgent, ReportingAgent, SchedulerAgent
+from backend.evaluation import run_evaluation
 from backend.rag import DocumentIndex
 
 
@@ -33,8 +34,30 @@ def test_data_agent_flags_missing_fields():
     assert result["missing"], "Adhure invoice par missing fields batani chahiye"
 
 
+def test_scheduler_payment_reminders_use_pending_orders():
+    # Uses the seeded orders via store; run only as a shape check:
+    # the function must return a list of dicts with a draft each.
+    from backend import store
+
+    store.init_db()
+    reminders = SchedulerAgent.payment_reminders(min_days=0)
+    assert isinstance(reminders, list)
+    for r in reminders:
+        assert r["draft"] and r["order_id"] and r["customer"]
+
+
+def test_evaluation_runs_and_reports_metrics():
+    result = run_evaluation()
+    assert result["cases_total"] == 10
+    assert 0 <= result["task_success_rate"] <= 1
+    assert 0 <= result["baseline_success_rate"] <= 1
+    assert result["avg_latency_ms"] >= 0
+
+
 if __name__ == "__main__":
     test_rag_finds_return_policy()
     test_data_agent_extracts_invoice()
     test_data_agent_flags_missing_fields()
+    test_scheduler_payment_reminders_use_pending_orders()
+    test_evaluation_runs_and_reports_metrics()
     print("All core tests passed.")
