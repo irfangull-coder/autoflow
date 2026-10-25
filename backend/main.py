@@ -196,6 +196,12 @@ def home():
     return FileResponse(BASE_DIR / "frontend" / "index.html")
 
 
+@app.get("/customer")
+def customer():
+    """Separate customer view (see frontend/customer.html)."""
+    return FileResponse(BASE_DIR / "frontend" / "customer.html")
+
+
 @app.post("/api/ask")
 def ask(body: Question):
     return orchestrator.handle_question(body.question)
@@ -220,6 +226,22 @@ def order(order_id: str):
 @app.get("/api/approvals")
 def approvals():
     return store.list_approvals()
+
+
+@app.get("/api/approvals/{approval_id}")
+def approval(approval_id: int):
+    """Single approval, for the customer view. The draft is returned
+    ONLY after approval: while pending or rejected the customer sees
+    just the status, never the unapproved draft."""
+    for a in store.list_approvals():
+        if a["id"] == approval_id:
+            if a["status"] == "approved":
+                return {"id": a["id"], "task": a["task"],
+                        "draft": a["draft"], "source": a["source"],
+                        "status": a["status"]}
+            return {"id": a["id"], "task": a["task"],
+                    "status": a["status"]}
+    return {"error": "not_found"}
 
 
 @app.post("/api/approvals/{approval_id}/approve")
