@@ -84,7 +84,7 @@ class DataAgent:
     @staticmethod
     def extract(text: str) -> dict:
         amount = re.search(r"(?:Rs\.?|PKR)\s*([0-9,]+)", text, re.IGNORECASE)
-        quantity = re.search(r"(\d+)\s*(?:pcs|pieces|items|shoes|shirt)", text, re.IGNORECASE)
+        quantity = re.search(r"(\d+)\s*(?:pcs|pieces|items|shoes|shirt|bag)", text, re.IGNORECASE)
         order = re.search(r"order\s*(?:no\.?|#)?\s*(\d+)", text, re.IGNORECASE)
         fields = {
             "amount": int(amount.group(1).replace(",", "")) if amount else None,
