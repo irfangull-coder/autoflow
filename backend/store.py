@@ -57,6 +57,19 @@ def init_db() -> None:
             detail TEXT NOT NULL,
             created_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
+        CREATE TABLE IF NOT EXISTS tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            result TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE TABLE IF NOT EXISTS documents (
+            title TEXT PRIMARY KEY,
+            text TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
         """
     )
     count = conn.execute("SELECT COUNT(*) FROM orders").fetchone()[0]
@@ -148,3 +161,82 @@ def list_logs(limit: int = 50) -> list[dict]:
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def create_task(title: str, kind: str) -> int:
+    conn = get_db()
+    cur = conn.execute(
+        "INSERT INTO tasks (title, kind, status) VALUES (?,?,?)",
+        (title, kind, "running"),
+    )
+    task_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+    return task_id
+
+
+def update_task(task_id: int, status: str, result: str) -> None:
+    conn = get_db()
+    conn.execute(
+        "UPDATE tasks SET status = ?, result = ? WHERE id = ?",
+        (status, result, task_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def list_tasks(limit: int = 50) -> list[dict]:
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM tasks ORDER BY id DESC LIMIT ?", (limit,)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def save_document(title: str, text: str) -> None:
+    conn = get_db()
+    conn.execute(
+        "INSERT OR REPLACE INTO documents (title, text) VALUES (?,?)",
+        (title, text),
+    )
+    conn.commit()
+    conn.close()
+
+
+def list_documents() -> list[dict]:
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT title, length(text) AS chars, created_at FROM documents ORDER BY title"
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_document(title: str) -> dict | None:
+    conn = get_db()
+    row = conn.execute(
+        "SELECT * FROM documents WHERE title = ?", (title,)
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def delete_document(title: str) -> bool:
+    conn = get_db()
+    cur = conn.execute("DELETE FROM documents WHERE title = ?", (title,))
+    conn.commit()
+    conn.close()
+    return cur.rowcount > 0
+
+
+def update_approval_draft(approval_id: int, draft: str) -> bool:
+    """Edit a pending draft before it is approved or rejected."""
+    conn = get_db()
+    cur = conn.execute(
+        "UPDATE approvals SET draft = ? WHERE id = ? AND status = 'pending'",
+        (draft, approval_id),
+    )
+    conn.commit()
+    conn.close()
+    return cur.rowcount > 0
