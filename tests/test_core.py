@@ -54,7 +54,22 @@ def test_evaluation_runs_and_reports_metrics():
     assert result["avg_latency_ms"] >= 0
 
 
+def test_llm_disabled_without_key():
+    # No key in the test env: status must be disabled and generate
+    # must say so honestly, never crash and never expose a key.
+    import os
+
+    from backend import llm
+
+    os.environ.pop("AUTOFLOW_LLM_API_KEY", None)
+    os.environ.pop("AUTOFLOW_LLM_PROVIDER", None)
+    assert llm.status()["enabled"] is False
+    result = llm.generate("hello")
+    assert result["ok"] is False and result["error"] == "llm_disabled"
+
+
 if __name__ == "__main__":
+    test_llm_disabled_without_key()
     test_rag_finds_return_policy()
     test_data_agent_extracts_invoice()
     test_data_agent_flags_missing_fields()
