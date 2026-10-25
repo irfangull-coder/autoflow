@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AutoFlow — Customer Support</title>
+<style>
+  :root {
+    --bg: #eef2f7; --card: #ffffff; --ink: #101828; --muted: #667085;
+    --line: #d0d5dd; --primary: #4f46e5; --primary-dark: #4338ca;
+    --green: #067647; --green-bg: #ecfdf3; --red: #b42318; --red-bg: #fef3f2;
+    --amber-bg: #fffaeb; --amber: #b54708;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; margin: 0; color: var(--ink); background: var(--bg); }
+  header { background: linear-gradient(135deg, #0f766e, #06b6d4 70%); color: #fff; padding: 36px 20px 28px; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 20px; }
+  header h1 { margin: 0 0 6px; font-size: 32px; }
+  header p { margin: 0; opacity: 0.92; max-width: 680px; line-height: 1.5; }
+  header a { color: #fff; }
+  main { padding: 24px 0 40px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 20px; box-shadow: 0 2px 10px rgba(16,24,40,0.05); }
+  .hint { color: var(--muted); font-size: 14px; line-height: 1.5; }
+  input { width: 100%; padding: 11px 12px; margin: 6px 0 10px; border: 1px solid var(--line); border-radius: 10px; font: inherit; }
+  button { padding: 10px 18px; margin: 0 8px 8px 0; cursor: pointer; border: 0; border-radius: 10px; background: var(--primary); color: #fff; font-weight: 600; }
+  button:hover { background: var(--primary-dark); }
+  button.secondary { background: #f2f4f7; color: var(--ink); border: 1px solid var(--line); }
+  .msg { border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin: 12px 0; }
+  .msg .q { font-weight: 600; }
+  .msg .a { margin-top: 8px; line-height: 1.55; }
+  .tag { display: inline-block; border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 600; background: var(--amber-bg); color: var(--amber); }
+  .tag.ok { background: var(--green-bg); color: var(--green); }
+  .tag.no { background: var(--red-bg); color: var(--red); }
+  .meta { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>AutoFlow — Customer Support</h1>
+    <p>Ask about your order, our return policy, prices or delivery. Your question goes to the shop owner for approval first, and you see the answer here only after it is approved. This is the customer view, separate from the owner dashboard.</p>
+    <p class="meta" style="color:#fff;">Demo only: try "Where is my order 1023?" or "What is the return policy?" &middot; <a href="index.html">Owner dashboard</a></p>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="card">
+    <h2 style="margin-top:0;">Ask a question</h2>
+    <input id="q" placeholder="e.g. Where is my order 1023?">
+    <button onclick="ask()">Send question</button>
+    <button class="secondary" onclick="refreshAll()">Refresh answers</button>
+    <p class="hint">Your question is sent for owner approval. Answers appear below automatically once approved, and you never see other customers' questions or the owner's dashboard.</p>
+    <div id="chat"></div>
+  </div>
+</main>
+
+<script src="config.js"></script>
+<script>
+const API_BASE = (window.AUTOFLOW_API_URL || "").replace(/\/$/, "");
+function api(path) { return API_BASE + path; }
+function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+
+// Only the customer's own question IDs are kept, in this browser.
+// The server never sends this page another customer's draft.
+let items = [];
+try { items = JSON.parse(localStorage.getItem("autoflow_customer_items") || "[]"); } catch (e) { items = []; }
+function save() { localStorage.setItem("autoflow_customer_items", JSON.stringify(items)); }
+
+async function ask() {
+  const q = document.getElementById("q").value.trim();
+  if (!q) return;
+  document.getElementById("q").value = "";
+  // The API queues a draft for owner approval. We deliberately do NOT
+  // show any draft from this response: the customer sees the answer
+  // only after the owner approves it.
+  const d = await fetch(api("/api/ask"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: q }) }).then(r => r.json());
+  items.unshift({ approval_id: d.approval_id, question: q, status: "pending" });
+  save();
+  render();
+  refreshAll();
+}
+
+async function refreshAll() {
+  for (const it of items) {
+    if (it.status === "pending") {
+      const d = await fetch(api("/api/approvals/" + it.approval_id)).then(r => r.json());
+      if (d && d.status) {
+        it.status = d.status;
+        if (d.status === "approved") { it.answer = d.draft; it.source = d.source; }
+      }
+    }
+  }
+  save();
+  render();
+}
+
+function render() {
+  const el = document.getElementById("chat");
+  if (!items.length) { el.innerHTML = "<p class='hint'>No questions yet. Ask one above.</p>"; return; }
+  el.innerHTML = items.map(it => {
+    let body = "";
+    if (it.status === "approved") {
+      body = `<div class="a">${esc(it.answer)}</div><div class="meta">Source: ${esc(it.source || "")}</div>`;
+    } else if (it.status === "rejected") {
+      body = `<div class="a">This answer was not approved. Please ask again or contact the shop directly.</div>`;
+    } else {
+      body = `<div class="a">Waiting for the shop owner to approve the answer...</div>`;
+    }
+    const tag = it.status === "approved" ? '<span class="tag ok">Answered</span>'
+      : it.status === "rejected" ? '<span class="tag no">Not approved</span>'
+      : '<span class="tag">Waiting for approval</span>';
+    return `<div class="msg"><div class="q">${esc(it.question)}</div><div style="margin-top:6px;">${tag}</div>${body}</div>`;
+  }).join("");
+}
+
+render();
+setInterval(() => { if (items.some(i => i.status === "pending")) refreshAll(); }, 10000);
+</script>
+</body>
+</html>
