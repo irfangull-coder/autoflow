@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AutoFlow — Dashboard (Starter)</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 900px; margin: 30px auto; padding: 0 16px; color: #1a1a1a; }
+  h1 { margin-bottom: 4px; } p.sub { color: #555; margin-top: 0; }
+  section { border: 1px solid #ddd; border-radius: 10px; padding: 16px; margin: 16px 0; }
+  input, textarea { width: 100%; padding: 10px; margin: 6px 0; box-sizing: border-box; }
+  button { padding: 9px 16px; margin-right: 8px; cursor: pointer; }
+  pre { background: #f4f4f4; padding: 12px; white-space: pre-wrap; border-radius: 6px; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .card { border: 1px solid #ddd; border-radius: 8px; padding: 10px 14px; }
+</style>
+</head>
+<body>
+<h1>AutoFlow</h1>
+<p class="sub">Multi-Agent Business Automation — Starter Dashboard (FYP Week 1–3)</p>
+
+<section>
+  <h2>1. Customer sawal poocho (Support Agent + RAG)</h2>
+  <input id="q" placeholder="Masalan: mera order 1023 kahan hai? ya return policy kya hai?">
+  <button onclick="ask()">Agent se poocho</button>
+  <pre id="askOut">Yahan agent ke steps, draft aur source nazar aayen ge.</pre>
+</section>
+
+<section>
+  <h2>2. Approval Queue (Human-in-the-loop)</h2>
+  <button onclick="loadApprovals()">Approvals refresh karo</button>
+  <div id="approvals"></div>
+</section>
+
+<section>
+  <h2>3. Invoice se data nikaalo (Data Agent)</h2>
+  <textarea id="inv" rows="3" placeholder="Masalan: Order 1023, Ali ne 2 shoes order kiye, Rs 4500"></textarea>
+  <button onclick="invoice()">Data nikaalo</button>
+  <pre id="invOut"></pre>
+</section>
+
+<section>
+  <h2>4. Report + Logs</h2>
+  <button onclick="report()">Report dekho</button>
+  <button onclick="logs()">Logs dekho</button>
+  <pre id="repOut"></pre>
+</section>
+
+<section>
+  <h2>5. Naya document upload karo (Live RAG proof)</h2>
+  <input id="docTitle" placeholder="Document ka naam, masalan: New Price List">
+  <textarea id="docText" rows="3" placeholder="Document ka text likho, phir usi bare me sawal poocho."></textarea>
+  <button onclick="uploadDoc()">Upload karo</button>
+  <pre id="docOut"></pre>
+</section>
+
+<script src="config.js"></script>
+<script>
+// API base: local par khaali (relative /api/...), live par Render URL.
+// Ye value frontend/config.js me set hoti hai.
+const API_BASE = (window.AUTOFLOW_API_URL || "").replace(/\/$/, "");
+function api(path) { return API_BASE + path; }
+async function post(url, body) {
+  const r = await fetch(api(url), { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+  return r.json();
+}
+async function ask() {
+  const q = document.getElementById('q').value;
+  const d = await post('/api/ask', { question: q });
+  document.getElementById('askOut').textContent = JSON.stringify(d, null, 2);
+  loadApprovals();
+}
+async function invoice() {
+  const t = document.getElementById('inv').value;
+  const d = await post('/api/invoice', { text: t });
+  document.getElementById('invOut').textContent = JSON.stringify(d, null, 2);
+  loadApprovals();
+}
+async function loadApprovals() {
+  const d = await fetch(api('/api/approvals')).then(r => r.json());
+  document.getElementById('approvals').innerHTML = d.map(a =>
+    `<div class="card"><b>#${a.id}</b> [${a.status}] — ${a.task}<br>${a.draft}<br><i>Source: ${a.source}</i><br>
+     <button onclick="act(${a.id},'approve')">Approve</button>
+     <button onclick="act(${a.id},'reject')">Reject</button></div>`
+  ).join('') || 'Koi approval pending nahi hai.';
+}
+async function act(id, action) {
+  await post(`/api/approvals/${id}/${action}`, {});
+  loadApprovals();
+}
+async function report() {
+  const d = await fetch(api('/api/report')).then(r => r.json());
+  document.getElementById('repOut').textContent = JSON.stringify(d, null, 2);
+}
+async function logs() {
+  const d = await fetch(api('/api/logs')).then(r => r.json());
+  document.getElementById('repOut').textContent = JSON.stringify(d, null, 2);
+}
+async function uploadDoc() {
+  const d = await post('/api/documents', { title: document.getElementById('docTitle').value, text: document.getElementById('docText').value });
+  document.getElementById('docOut').textContent = JSON.stringify(d, null, 2);
+}
+loadApprovals();
+</script>
+</body>
+</html>
