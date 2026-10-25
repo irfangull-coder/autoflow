@@ -1,0 +1,21 @@
+# Render Blueprint — GitHub repo connect karne ke baad
+# "New > Blueprint" se ye file use hogi, ya manually Web Service banao
+# aur neeche wali settings wahi rakho.
+services:
+  - type: web
+    name: autoflow-api
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      # Vercel deploy ke baad apni asli Vercel URL yahan likho.
+      # Masalan: https://autoflow-demo.vercel.app
+      - key: ALLOWED_ORIGINS
+        value: https://autoflow-demo.vercel.app
+      # Agar Render par persistent disk lagao to isko /data/autoflow.db
+      # kar do aur disk mount karo; warna free instance par restart
+      # par SQLite data reset ho sakta hai (demo ke liye theek hai).
+      # - key: AUTOFLOW_DB_PATH
+      #   value: /data/autoflow.db
